@@ -8,6 +8,30 @@ import time
 import numpy as np
 import math
 
+import serial
+
+
+def send_dmx(com, addr, val):
+	com.write(bytes(f'<{",".join([f"{addr:03}",f"{val:03}"])}>', "ascii"))
+
+
+def on_mouse(event, x, y, flags, param):
+	if event == cv2.EVENT_LBUTTONDOWN:
+		# draw circle here (etc...)
+		print('x = %d, y = %d' % (x, y))
+
+
+def x_to_angle(x, max_angle):
+	return -(0.048*x)+24.213 + max_angle/2
+
+
+def aim_light(deg, com):
+	dmx = int((deg / 270.0) * 32767)  # pan
+	coarse = (dmx >> 8) & 0xff
+	fine = dmx & 0xff
+	send_dmx(com, 1, coarse)
+	send_dmx(com, 3, fine)
+
 
 def least_movement(last_pos, new_pos):
 	movements = []
@@ -87,9 +111,10 @@ if platform.system() != "Windows":
 	webcam = cv2.VideoCapture("/dev/video0")
 	time.sleep(1)
 else:
-	webcam = cv2.VideoCapture("X:\\Silchester Players\\Aladdin\\Footage\\evening full.mp4")
+	# webcam = cv2.VideoCapture("X:\\Silchester Players\\Aladdin\\Footage\\evening full.mp4")
+	webcam = cv2.VideoCapture(1, cv2.CAP_DSHOW)
 	time.sleep(1)
-	webcam.set(1, 875)
+	# webcam.set(1, 875)
 	# webcam.set(1, 10000)
 
 webcam.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
@@ -101,8 +126,9 @@ ret, frame = webcam.read()
 
 # Background subtraction method (KNN, MOG2)
 algo = "MOG2"
-spots = 4
+spots = 1
 spot_buffer_size = 10
+com = serial.Serial("COM5", baudrate=2000000, rtscts=False)
 
 if algo == 'MOG2':
 	backSub = cv2.createBackgroundSubtractorMOG2(history=500, detectShadows=False)
@@ -206,22 +232,26 @@ while True:
 			centers.append(tuple(point.astype(np.uint32)))
 		if spots_buffers[0].get_length():
 			last_pos = [spot.get_last_pos()[:2] for spot in spots_buffers]
-			center_indexes = least_movement(last_pos, centers)
-			centers = [centers[i] for i in center_indexes]
-			radii = []
+			centers = least_movement(last_pos, centers)
+			# centers = [centers[i] for i in center_indexes]
+			# radii = []
 		for i in range(len(centers)):
 			spots_buffers[i].update(*centers[i], 0, 0)
+			if spots == 1:
+				aim_light(x_to_angle(spots_buffers[i].get_pos()[0], 540), com)
 			cv2.circle(frame, spots_buffers[i].get_pos()[:2], 10, spot_colours[i], -1)
 
 	output = frame
 
 	end = time.time()
 	cv2.putText(output, f"{int(1 / (end - start))}FPS", (0, 50), cv2.FONT_HERSHEY_SIMPLEX, 2, 255)
-	cv2.imshow(f"FG Mask", output)
+	cv2.imshow(f"Window", output)
 
 	# quit with q button
 	if cv2.waitKey(1) & 0xFF == ord('q'):
 		break
+
+	cv2.setMouseCallback('Window', on_mouse)
 
 webcam.release()
 cv2.destroyAllWindows()

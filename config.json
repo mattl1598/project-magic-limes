@@ -1,0 +1,28 @@
+{
+  "lights": [
+	{
+	  "startAddress": 1,
+	  "calibrationFunc" :
+	}
+  ],
+
+  "fixture": {
+	"homePos": {
+	  "panC": 1,
+	  "panF": 3,
+	  "tiltC": 2,
+	  "tiltF": 4,
+	  "zoom": 27,
+	  "dimmer": 25
+	},
+	"addresses": {
+	  "panC": 1,
+	  "panF": 3,
+	  "tiltC": 2,
+	  "tiltF": 4,
+	  "zoom": 27,
+	  "dimmer": 25
+	}
+
+  }
+}
